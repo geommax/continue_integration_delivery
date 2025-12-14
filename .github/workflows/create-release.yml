@@ -1,16 +1,11 @@
 name: Create Release
 
 on:
+  push:
+    tags:
+      - 'release-v*.*.*'
   workflow_dispatch:
     inputs:
-      frontend_version:
-        description: 'Frontend version (e.g., 1.1.2)'
-        required: true
-        type: string
-      api_version:
-        description: 'API Gateway version (e.g., 1.1.1)'
-        required: true
-        type: string
       release_version:
         description: 'Release version (e.g., 1.1.0)'
         required: true
@@ -35,12 +30,35 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+
+      - name: Detect latest container versions (git tags only)
+        id: detect_versions
+        run: |
+          set -e
+
+          # Find latest git tags matching the expected naming convention
+          FRONTEND_TAG=$(git tag -l "frontend-v*.*.*" | sort -V | tail -1 || true)
+          API_TAG=$(git tag -l "api-v*.*.*" | sort -V | tail -1 || true)
+
+          if [ -z "$FRONTEND_TAG" ]; then
+            echo "::error::No git tag matching 'frontend-v*.*.*' found. Create a tag like 'frontend-v1.2.3'." && exit 1
+          fi
+          if [ -z "$API_TAG" ]; then
+            echo "::error::No git tag matching 'api-v*.*.*' found. Create a tag like 'api-v1.2.3'." && exit 1
+          fi
+
+          FRONTEND_VERSION="${FRONTEND_TAG#frontend-v}"
+          API_VERSION="${API_TAG#api-v}"
+
+          echo "frontend_version=$FRONTEND_VERSION" >> $GITHUB_OUTPUT
+          echo "api_version=$API_VERSION" >> $GITHUB_OUTPUT
+          echo "Detected frontend: $FRONTEND_VERSION, api: $API_VERSION"
+
       - name: Generate release notes
         run: |
-          FRONTEND_VERSION="${{ inputs.frontend_version }}"
-          API_VERSION="${{ inputs.api_version }}"
+          FRONTEND_VERSION="${{ steps.detect_versions.outputs.frontend_version }}"
+          API_VERSION="${{ steps.detect_versions.outputs.api_version }}"
           RELEASE_VERSION="${{ inputs.release_version }}"
-          
           cat > release_notes.md << EOF
           ## 🎉 Growth Calculator Release v$RELEASE_VERSION
 
@@ -289,10 +307,12 @@ jobs:
 
       - name: Output summary
         run: |
+          FRONTEND_VERSION="${{ steps.detect_versions.outputs.frontend_version }}"
+          API_VERSION="${{ steps.detect_versions.outputs.api_version }}"
           echo "### ✅ Release Created" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Release Version:** v${{ inputs.release_version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Frontend Version:** ${{ inputs.frontend_version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**API Gateway Version:** ${{ inputs.api_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Frontend Version:** $FRONTEND_VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "**API Gateway Version:** $API_VERSION" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "[View Release](https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.release_version }})" >> $GITHUB_STEP_SUMMARY

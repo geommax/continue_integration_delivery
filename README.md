@@ -87,3 +87,17 @@ sudo docker network rm growth-calculator-network
 sudo docker rmi growth-calculator-web:latest api-gateway-python:v1
 ```
 
+
+## Docker image delivery & Creating Release
+```bash
+git tag frontend-v1.1.2 && git push origin frontend-v1.1.2
+```
+
+```bash
+git tag api-v1.1.1 && git push origin api-v1.1.1
+```
+
+```bash 
+git tag release-v1.0 && git push origin release-v1.0
+```
+
