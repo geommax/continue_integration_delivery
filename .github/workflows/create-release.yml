@@ -29,12 +29,18 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # fetch full history and tags so git tag listing works reliably
+          fetch-depth: 0
 
 
       - name: Detect latest container versions (git tags only)
         id: detect_versions
         run: |
           set -e
+
+          # Ensure tags are present in the runner (in case checkout was shallow)
+          git fetch --tags --prune origin || true
 
           # Find latest git tags matching the expected naming convention
           FRONTEND_TAG=$(git tag -l "frontend-v*.*.*" | sort -V | tail -1 || true)
