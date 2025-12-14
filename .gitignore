@@ -1,0 +1,39 @@
+# MongoDB data directory
+mongodb/data/
+
+# Accidentally created mongodb folders in wrong locations
+web-frontend/mongodb/
+api-gateway-python/mongodb/
+
+# Node modules
+node_modules/
+web-frontend/node_modules/
+
+# Build outputs
+web-frontend/build/
+web-frontend/dist/
+
+# Environment files
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
