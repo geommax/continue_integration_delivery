@@ -1,0 +1,298 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      frontend_version:
+        description: 'Frontend version (e.g., 1.1.2)'
+        required: true
+        type: string
+      api_version:
+        description: 'API Gateway version (e.g., 1.1.1)'
+        required: true
+        type: string
+      release_version:
+        description: 'Release version (e.g., 1.1.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  FRONTEND_IMAGE: growth-calculator-web
+  API_IMAGE: api-gateway-python
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate release notes
+        run: |
+          FRONTEND_VERSION="${{ inputs.frontend_version }}"
+          API_VERSION="${{ inputs.api_version }}"
+          RELEASE_VERSION="${{ inputs.release_version }}"
+          
+          cat > release_notes.md << EOF
+          ## 🎉 Growth Calculator Release v$RELEASE_VERSION
+
+          ### 📦 Docker Images
+
+          This release includes the following container versions:
+
+          #### Frontend
+          \`\`\`bash
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_IMAGE }}:$FRONTEND_VERSION
+          \`\`\`
+
+          #### API Gateway
+          \`\`\`bash
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.API_IMAGE }}:$API_VERSION
+          \`\`\`
+
+          ### 📌 Version Information
+
+          | Component | Version |
+          |-----------|---------|
+          | **Frontend** | \`$FRONTEND_VERSION\` |
+          | **API Gateway** | \`$API_VERSION\` |
+          | **MongoDB** | \`7.0\` |
+
+          ---
+
+          ## 🚀 Complete Deployment
+
+          ### Prerequisites
+          \`\`\`bash
+          # Create network
+          docker network create growth-calculator-network
+
+          # Start MongoDB
+          sudo docker run -d \\
+            --name growth-calculator-mongodb \\
+            --network growth-calculator-network \\
+            -p 27017:27017 \\
+            -v \$(pwd)/mongodb/data:/data/db \\
+            -e TZ=Asia/Yangon \\
+            mongo:7.0
+          \`\`\`
+
+          ### Full Stack Deployment
+
+          \`\`\`bash
+          #!/bin/bash
+          FRONTEND_VERSION="$FRONTEND_VERSION"
+          API_VERSION="$API_VERSION"
+          
+          FRONTEND_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_IMAGE }}:\$FRONTEND_VERSION"
+          API_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.API_IMAGE }}:\$API_VERSION"
+
+          echo "🔄 Deploying Growth Calculator v$RELEASE_VERSION..."
+
+          # Stop existing containers
+          sudo docker stop growth-calculator-api growth-calculator-web 2>/dev/null
+          sudo docker rm growth-calculator-api growth-calculator-web 2>/dev/null
+
+          # Pull images
+          echo "Pulling images..."
+          docker pull \$API_IMAGE
+          docker pull \$FRONTEND_IMAGE
+
+          # Start API Gateway
+          echo "Starting API Gateway..."
+          sudo docker run -d \\
+            --name growth-calculator-api \\
+            --network growth-calculator-network \\
+            -p 8080:8080 \\
+            -e MONGO_URL=mongodb://growth-calculator-mongodb:27017/ \\
+            -e TZ=Asia/Yangon \\
+            \$API_IMAGE
+
+          # Wait for API
+          echo "Waiting for API..."
+          sleep 5
+
+          # Start Frontend
+          echo "Starting Frontend..."
+          sudo docker run -d \\
+            --name growth-calculator-web \\
+            --network growth-calculator-network \\
+            -p 3001:80 \\
+            -e TZ=Asia/Yangon \\
+            \$FRONTEND_IMAGE
+
+          # Verify
+          echo ""
+          echo "✅ Deployment complete!"
+          sudo docker ps | grep growth-calculator
+          
+          echo ""
+          echo "Health Checks:"
+          sleep 3
+          curl -f http://localhost:8080/health && echo "✅ API is healthy"
+          curl -f http://localhost:3001 && echo "✅ Frontend is healthy"
+          
+          echo ""
+          echo "🎯 Application ready at: http://localhost:3001"
+          \`\`\`
+
+          ### Docker Compose
+
+          Save as \`docker-compose.yml\`:
+          \`\`\`yaml
+          version: '3.8'
+
+          services:
+            mongodb:
+              image: mongo:7.0
+              container_name: growth-calculator-mongodb
+              ports:
+                - "27017:27017"
+              volumes:
+                - ./mongodb/data:/data/db
+              environment:
+                - TZ=Asia/Yangon
+              networks:
+                - growth-calculator-network
+
+            api-gateway:
+              image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.API_IMAGE }}:$API_VERSION
+              container_name: growth-calculator-api
+              ports:
+                - "8080:8080"
+              environment:
+                - MONGO_URL=mongodb://growth-calculator-mongodb:27017/
+                - TZ=Asia/Yangon
+              depends_on:
+                - mongodb
+              networks:
+                - growth-calculator-network
+
+            frontend:
+              image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_IMAGE }}:$FRONTEND_VERSION
+              container_name: growth-calculator-web
+              ports:
+                - "3001:80"
+              environment:
+                - TZ=Asia/Yangon
+              depends_on:
+                - api-gateway
+              networks:
+                - growth-calculator-network
+
+          networks:
+            growth-calculator-network:
+              driver: bridge
+          \`\`\`
+
+          Deploy:
+          \`\`\`bash
+          docker-compose up -d
+          \`\`\`
+
+          ---
+
+          ## 📋 Individual Container Updates
+
+          ### Update Frontend Only
+          \`\`\`bash
+          sudo docker stop growth-calculator-web
+          sudo docker rm growth-calculator-web
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_IMAGE }}:$FRONTEND_VERSION
+          sudo docker run -d \\
+            --name growth-calculator-web \\
+            --network growth-calculator-network \\
+            -p 3001:80 \\
+            -e TZ=Asia/Yangon \\
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_IMAGE }}:$FRONTEND_VERSION
+          \`\`\`
+
+          ### Update API Only
+          \`\`\`bash
+          sudo docker stop growth-calculator-api
+          sudo docker rm growth-calculator-api
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.API_IMAGE }}:$API_VERSION
+          sudo docker run -d \\
+            --name growth-calculator-api \\
+            --network growth-calculator-network \\
+            -p 8080:8080 \\
+            -e MONGO_URL=mongodb://growth-calculator-mongodb:27017/ \\
+            -e TZ=Asia/Yangon \\
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.API_IMAGE }}:$API_VERSION
+          \`\`\`
+
+          ---
+
+          ## ✅ Verification
+
+          \`\`\`bash
+          # Check running containers
+          sudo docker ps | grep growth-calculator
+
+          # Test API health
+          curl http://localhost:8080/health
+
+          # Test Frontend
+          curl http://localhost:3001
+
+          # Check API documentation
+          open http://localhost:8080/docs
+
+          # View logs
+          sudo docker logs growth-calculator-api
+          sudo docker logs growth-calculator-web
+          sudo docker logs growth-calculator-mongodb
+          \`\`\`
+
+          ---
+
+          ## 🔄 Rollback
+
+          To rollback to a previous version, use the deployment script with the old version numbers.
+
+          ---
+
+          ## 📚 Documentation
+
+          - [Release Guide](https://github.com/${{ github.repository }}/blob/main/RELEASE-GUIDE.md)
+          - [System Architecture](https://github.com/${{ github.repository }}/blob/main/ARCHITECTURE.md)
+          - [API Documentation](http://localhost:8080/docs)
+
+          ---
+
+          ## 🔗 Container Images
+
+          - Frontend: [\`${{ secrets.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_IMAGE }}:$FRONTEND_VERSION\`](https://hub.docker.com/r/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_IMAGE }})
+          - API Gateway: [\`${{ secrets.DOCKERHUB_USERNAME }}/${{ env.API_IMAGE }}:$API_VERSION\`](https://hub.docker.com/r/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.API_IMAGE }})
+          EOF
+          
+          cat release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ inputs.release_version }}
+          name: Release v${{ inputs.release_version }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: ${{ inputs.prerelease }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Output summary
+        run: |
+          echo "### ✅ Release Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Release Version:** v${{ inputs.release_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Frontend Version:** ${{ inputs.frontend_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**API Gateway Version:** ${{ inputs.api_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[View Release](https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.release_version }})" >> $GITHUB_STEP_SUMMARY

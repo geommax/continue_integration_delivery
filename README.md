@@ -85,4 +85,5 @@ sudo docker network rm growth-calculator-network
 ## Remove Docker images
 ```bash
 sudo docker rmi growth-calculator-web:latest api-gateway-python:v1
-```# continue_integration_delivery
+```
+
