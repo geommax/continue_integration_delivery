@@ -4,13 +4,7 @@ on:
   push:
     tags:
       - 'api-v*.*.*'
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to build (e.g., 1.1.1)'
-        required: true
-        type: string
-
+      
 env:
   REGISTRY: docker.io
   IMAGE_NAME: api-gateway-python

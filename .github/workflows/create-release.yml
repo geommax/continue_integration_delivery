@@ -4,17 +4,6 @@ on:
   push:
     tags:
       - 'release-v*.*.*'
-  workflow_dispatch:
-    inputs:
-      release_version:
-        description: 'Release version (e.g., 1.1.0)'
-        required: true
-        type: string
-      prerelease:
-        description: 'Mark as pre-release'
-        required: false
-        type: boolean
-        default: false
 
 env:
   FRONTEND_IMAGE: growth-calculator-web
@@ -60,11 +49,32 @@ jobs:
           echo "api_version=$API_VERSION" >> $GITHUB_OUTPUT
           echo "Detected frontend: $FRONTEND_VERSION, api: $API_VERSION"
 
+      - name: Set release version
+        id: set_release_version
+        run: |
+          set -e
+          # Derive release version from the pushed tag (workflow only triggered by tag push)
+          if [ -z "$GITHUB_REF" ]; then
+            echo "::error::GITHUB_REF not set; this workflow must be triggered by a tag push" && exit 1
+          fi
+
+          REF_NAME=${GITHUB_REF#refs/tags/}
+          # strip common prefixes like 'release-v' or leading 'v'
+          RELEASE_VERSION=${REF_NAME#release-v}
+          RELEASE_VERSION=${RELEASE_VERSION#v}
+
+          if [ -z "$RELEASE_VERSION" ]; then
+            echo "::error::Unable to parse release version from tag '$REF_NAME'" && exit 1
+          fi
+
+          echo "release_version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
+          echo "Computed release_version=$RELEASE_VERSION"
+
       - name: Generate release notes
         run: |
           FRONTEND_VERSION="${{ steps.detect_versions.outputs.frontend_version }}"
           API_VERSION="${{ steps.detect_versions.outputs.api_version }}"
-          RELEASE_VERSION="${{ inputs.release_version }}"
+          RELEASE_VERSION="${{ steps.set_release_version.outputs.release_version }}"
           cat > release_notes.md << EOF
           ## 🎉 Growth Calculator Release v$RELEASE_VERSION
 
@@ -303,11 +313,11 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ inputs.release_version }}
-          name: Release v${{ inputs.release_version }}
+          tag_name: v${{ steps.set_release_version.outputs.release_version }}
+          name: Release v${{ steps.set_release_version.outputs.release_version }}
           body_path: release_notes.md
           draft: false
-          prerelease: ${{ inputs.prerelease }}
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -315,10 +325,11 @@ jobs:
         run: |
           FRONTEND_VERSION="${{ steps.detect_versions.outputs.frontend_version }}"
           API_VERSION="${{ steps.detect_versions.outputs.api_version }}"
+          RELEASE_VERSION="${{ steps.set_release_version.outputs.release_version }}"
           echo "### ✅ Release Created" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Release Version:** v${{ inputs.release_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Release Version:** v$RELEASE_VERSION" >> $GITHUB_STEP_SUMMARY
           echo "**Frontend Version:** $FRONTEND_VERSION" >> $GITHUB_STEP_SUMMARY
           echo "**API Gateway Version:** $API_VERSION" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "[View Release](https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.release_version }})" >> $GITHUB_STEP_SUMMARY
+          echo "[View Release](https://github.com/${{ github.repository }}/releases/tag/v$RELEASE_VERSION)" >> $GITHUB_STEP_SUMMARY
