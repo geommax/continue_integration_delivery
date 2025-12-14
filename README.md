@@ -98,6 +98,6 @@ git tag api-v1.1.1 && git push origin api-v1.1.1
 ```
 
 ```bash 
-git tag release-v1.0 && git push origin release-v1.0
+git tag release-v1.0.0 && git push origin release-v1.0.0
 ```
 
