@@ -1,0 +1,59 @@
+Dockerfile
+
+
+Docker file , build image , container & port combination 
+
+Key Concepts
+* Dockerfile: The source script or blueprint containing instructions.
+* Docker Image: The lightweight, standalone, and executable package built from a Dockerfile. Images are immutable once created.
+* Docker Container: A running instance of a Docker image. Containers are the isolated runtime environments where your application actually executes. 
+
+
+
+Common Dockerfile Instructions
+Instructions in a Dockerfile are typically written in uppercase by convention and are executed in order. 
+* FROM: Required as the first instruction, it sets the base image from which you are building (e.g., FROM ubuntu or FROM python:3.9).
+* RUN: Executes commands in a new layer on top of the current image and commits the results. Used for installing packages, compiling code, etc., during the build process.
+* COPY: Copies files/folders from the host machine's source path to the destination path inside the image.
+* ADD: Similar to COPY, but can also handle remote URLs and automatically extract compressed archives (like .tar.gz).
+* WORKDIR: Sets the working directory for any subsequent RUN, CMD, ENTRYPOINT, COPY, or ADD instructions.
+* CMD: Provides default commands and arguments for executing the application inside the container. These can be overridden when the container is run.
+* ENTRYPOINT: Configures the container to run as an executable. Unlike CMD, this command is not easily overridden at runtime.
+* EXPOSE: Informs Docker that the container will listen on the specified network ports at runtime. This is a metadata instruction and doesn't actually publish the port. 
+
+
+WORKDIR : နောက်လာမယ့် RUN, CMD, COPY, ADD အတွက် base path ဖြစ်သွားတယ်
+WORKDIR /app = cd /app. လုပ်ထားသလိုပဲ
+
+CMD ["python3", "app.py"]
+Container run လိုက်တဲ့အချိန် default command သတ်မှတ်တာ
+CMD က override လုပ်လို့ရ
+docker run မှာ command ထပ်ရေးရင် CMD ပျောက်သွားမယ်
+COMMAND တူမှ override ဖြစ်မှာလား၊ မတူရင်ရော override ဖြစ်လား။ ?? 
+
+
+
+ENTRYPOINT
+ Container ရဲ့ အဓိက executable ကို သတ်မှတ်တာ
+CMD နဲ့မတူတာက  ENTRYPOINT ကို override လုပ်ရခက်တယ်  CMD ကို ENTRYPOINT ရဲ့ argument အဖြစ်သုံးနိုင်တယ်
+
+ENTRYPOINT ["python3", "app.py"]
+
+
+
+⚠️ Best practice အရ
+ Simple copy အတွက် COPY
+ ADD ကို auto-extract လိုတဲ့အခါပဲသုံး
+
+
+
+
+
+docker build -t my-python-app .
+
+docker build -t simple-html-app .
+
+docker run -d -p 8080:80 simple-html-app
+
+http://localhost:8080
+
