@@ -1,0 +1,10 @@
+docker run -d --name web \
+  --network my_custom_net \
+  --ip 172.28.0.10 \
+  nginx
+
+
+sudo docker network create growth-calculator-network
+
+
+docker inspect web | grep IPAddress
