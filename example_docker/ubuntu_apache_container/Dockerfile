@@ -8,11 +8,13 @@ ENV APACHE_RUN_USER=www-data \
     APACHE_RUN_DIR=/var/run/apache2 \
     APACHE_LOCK_DIR=/var/lock/apache2
 
+
 # Install Apache
 RUN apt-get update && \
     apt-get install -y apache2 && \
     apt-get clean
 
+RUN apt-get install -y openssh-server
 # Expose Apache port
 EXPOSE 80
 

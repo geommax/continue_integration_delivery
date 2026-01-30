@@ -1,0 +1,43 @@
+version: "3.9"
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: growth-calculator-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./mongodb/data:/data/db
+    environment:
+      - TZ=Asia/Yangon
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')", "--quiet"]
+      interval: 3s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  growth-calculator-api:
+    build:
+      context: ./api-gateway-python
+    image: api-gateway-python:v1
+    container_name: growth-calculator-api
+    ports:
+      - "8080:8080"
+    environment:
+      - TZ=Asia/Yangon
+      - MONGO_URL=mongodb://mongodb:27017/
+    depends_on:
+      - mongodb
+
+  growth-calculator-web:
+    build:
+      context: ./web-frontend
+    image: growth-calculator-web:latest
+    container_name: growth-calculator-web
+    ports:
+      - "3001:80"
+    environment:
+      - TZ=Asia/Yangon
+    depends_on:
+      - growth-calculator-api

@@ -1,0 +1,256 @@
+| Type       | Description                  |
+| ---------- | ---------------------------- |
+| volume     | Docker managed (recommended) |
+| bind mount | Host directory               |
+| tmpfs      | RAM only (Linux)             |
+
+------------------------------------------------------------------------------------------------
+1 Create volume type of Named Volume
+
+docker volume create mydata
+docker volume ls
+docker volume inspect mydata
+
+
+------------
+Run container with volume
+
+docker run -d \
+  --name web1 \
+  -v mydata:/usr/share/nginx/html \
+  -p 8080:80 \
+  nginx
+
+
+------------
+Write data into volume
+
+docker exec -it web1 bash
+echo "Hello Students" > /usr/share/nginx/html/index.html
+exit
+
+------------
+Delete container (important demo moment)
+
+docker rm -f web1
+
+
+------------
+
+Recreate container using same volume
+
+docker run -d \
+  --name web2 \
+  -v mydata:/usr/share/nginx/html \
+  nginx
+
+
+
+------------------------------------------------------------------------------------------------
+Type Bind Mount (Host Folder)
+------------
+Host Folder 
+
+mkdir -p ~/docker-bind/html
+echo "Bind Mount Content" > ~/docker-bind/html/index.html
+
+------------
+
+
+docker run -d \
+  --name bind-test \
+  -p 8082:80 \
+  -v ~/docker-bind/html:/usr/share/nginx/html \
+  nginx
+
+
+Host file edit → browser update instant
+
+❌ Less portable
+
+❌ Security risk if misused
+
+-------------
+
+docker inspect bind-test
+
+------------------------------------------------------------------------------------------------
+
+tmpfs Volume Type
+------------
+
+⚠️ Linux only
+🔥 Data disappears when container stops
+
+
+docker run -d \
+  --name tmpfs-test \
+  -p 8083:80 \
+  --tmpfs /usr/share/nginx/html \
+  nginx
+
+docker ps -a --filter volume=webdata
+
+docker exec -it tmpfs-test bash
+echo "RAM DATA" > /usr/share/nginx/html/index.html
+exit
+
+
+docker restart tmpfs-test
+
+
+------------
+
+
+| Type       | Persistent | Managed | Use Case        |
+| ---------- | ---------- | ------- | --------------- |
+| volume     | ✅          | Docker  | Production      |
+| bind mount | ✅          | Host    | Dev             |
+| tmpfs      | ❌          | RAM     | Secrets / cache |
+
+
+------------
+===============================================================================================================
+
+Container တစ်လုံးချင်းစီမှာ
+
+IP address ရှိတယ်
+
+Network interface (eth0) ရှိတယ်
+
+
+
+| Network Type        | Description           | Use case      |
+| ------------------- | --------------------- | ------------- |
+| bridge              | Default local network | Simple apps   |
+| user-defined bridge | Custom bridge + DNS   | ⭐ Recommended |
+| host                | Host network direct   | Performance   |
+| overlay             | Multi-host            | Swarm / K8s   |
+| macvlan             | Real LAN IP           | Network lab   |
+
+
+Default bridge vs User-defined bridge
+❌ Default bridge (Not recommended)
+Problems:
+
+No automatic DNS
+IP change easily
+Manual linking
+
+✅ User-defined bridge (Best practice)
+Advantages:
+
+Container name = DNS
+Isolation
+Custom subnet / IP
+
+
+------------------------------------------------------------------------------------
+
+Demo 1: Default bridge (Problem demo)
+docker run -d --name c1 nginx
+docker run -it --name c2 busybox sh
+
+
+Inside c2:
+
+ping c1
+
+
+❌ Fail (no DNS)
+
+🧠 Teaching point
+
+Default bridge = weak networking
+
+
+------------------------------------------------------------------------------------
+Demo 1 Default bridge (Problem demo)
+
+docker run -d --name c1 nginx
+docker run -it --name c2 busybox sh
+
+ping c1
+
+
+------------------------------------------------------------------------------------
+Demo 2: User-defined bridge (Correct way)
+
+docker network create school_net
+
+docker run -d \
+  --name web \
+  --network school_net \
+  nginx
+
+docker run -it \
+  --name client \
+  --network school_net \
+  busybox sh
+
+ping web
+
+
+Container name = hostname
+DNS auto provided by Docker
+
+------------------------------------------------------------------------------------
+
+Custom IP & Subnet (Advanced but Important)
+
+docker network create \
+  --driver bridge \
+  --subnet 172.25.0.0/16 \
+  --gateway 172.25.0.1 \
+  lab_net
+
+
+docker run -d \
+  --name app \
+  --network lab_net \
+  --ip 172.25.0.10 \
+  nginx
+
+
+------------------------------------------------------------------------------------
+
+Port Mapping vs Docker Network (Important Concept)
+
+
+docker run -d \
+  --name web \
+  --network school_net \
+  -p 8080:80 \
+  nginx
+
+Browser → Host:8080 → Container:80
+
+docker inspect web | grep IPAddress
+
+docker exec -it web ip addr
+
+------------------------------------------------------------------------------------
+
+Real-world Example (Volume + Network)
+------------------------------------------------------------------------------------
+
+docker network create app_net
+docker volume create app_data
+
+docker run -d \
+  --name db \
+  --network app_net \
+  -v app_data:/data/db \
+  mongo
+
+docker run -d \
+  --name backend \
+  --network app_net \
+  -p 3000:3000 \
+  node
+
+--------------------
+
+
+
+
